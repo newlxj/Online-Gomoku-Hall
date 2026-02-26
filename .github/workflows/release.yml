@@ -1,0 +1,242 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  GO_VERSION: '1.21'
+  NODE_VERSION: '20'
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          # Windows
+          - os: windows
+            arch: amd64
+            runner: ubuntu-latest
+            ext: .exe
+          - os: windows
+            arch: arm64
+            runner: ubuntu-latest
+            ext: .exe
+          # macOS
+          - os: darwin
+            arch: amd64
+            runner: macos-latest
+            ext: ''
+          - os: darwin
+            arch: arm64
+            runner: macos-latest
+            ext: ''
+          # Linux
+          - os: linux
+            arch: amd64
+            runner: ubuntu-latest
+            ext: ''
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            ext: ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: server/go.sum
+
+      - name: Build backend
+        working-directory: server
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags="-s -w" -o gomoku-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd
+
+      - name: Create distribution package
+        run: |
+          mkdir -p dist
+          cp server/gomoku-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} dist/
+          # Copy data directory template
+          cp -r server/data dist/ 2>/dev/null || mkdir -p dist/data
+          # Create README for the package
+          echo "# Gomoku Server" > dist/README.txt
+          echo "" >> dist/README.txt
+          echo "Run: ./gomoku-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" >> dist/README.txt
+          echo "Access: http://localhost:8080" >> dist/README.txt
+
+      - name: Create archive
+        run: |
+          cd dist
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            7z a -tzip gomoku-${{ matrix.os }}-${{ matrix.arch }}.zip *
+          else
+            tar -czvf gomoku-${{ matrix.os }}-${{ matrix.arch }}.tar.gz *
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gomoku-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/gomoku-${{ matrix.os }}-${{ matrix.arch }}.*
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la artifacts/
+          echo ""
+          echo "Files in each artifact:"
+          for dir in artifacts/*/; do
+            echo "=== $dir ==="
+            ls -la "$dir"
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## 五子棋在线对战平台 / Online Gomoku Hall ${{ steps.version.outputs.VERSION }}
+
+            ### 下载说明 / Download Instructions
+
+            选择适合您系统的版本 / Choose the version for your system:
+
+            | 平台 Platform | 架构 Arch | 文件 File |
+            |--------------|-----------|-----------|
+            | Windows | x64 | `gomoku-windows-amd64.zip` |
+            | Windows | ARM64 | `gomoku-windows-arm64.zip` |
+            | macOS | Intel | `gomoku-darwin-amd64.tar.gz` |
+            | macOS | Apple Silicon | `gomoku-darwin-arm64.tar.gz` |
+            | Linux | x64 | `gomoku-linux-amd64.tar.gz` |
+            | Linux | ARM64 | `gomoku-linux-arm64.tar.gz` |
+
+            ### 运行方法 / How to Run
+
+            **Windows:**
+            ```bash
+            # 解压后运行
+            gomoku-windows-amd64.exe
+            ```
+
+            **macOS/Linux:**
+            ```bash
+            # 解压
+            tar -xzf gomoku-*.tar.gz
+            # 添加执行权限
+            chmod +x gomoku-*
+            # 运行
+            ./gomoku-*
+            ```
+
+            访问 / Visit: http://localhost:8080
+
+            ### 更新日志 / Changelog
+            - 请查看 commit 历史 / See commit history for changes
+          files: |
+            artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Build Docker image
+  docker:
+    name: Build Docker Image
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.VERSION }}
+          platforms: linux/amd64,linux/arm64

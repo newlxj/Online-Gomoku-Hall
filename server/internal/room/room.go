@@ -633,3 +633,60 @@ func (r *Room) SetGameFinished(winner int, reason string) {
 	r.Winner = winner
 	r.WinReason = reason
 }
+
+// UndoMove 撤销最后一步棋（需要请求者的棋子颜色）
+func (r *Room) UndoMove(requesterPieceType int) (bool, message.MoveRecord) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.Status != StatusPlaying || r.Game == nil {
+		return false, message.MoveRecord{}
+	}
+
+	// 检查是否有棋可悔
+	if len(r.MoveHistory) == 0 {
+		return false, message.MoveRecord{}
+	}
+
+	// 获取最后一步棋
+	lastMove := r.MoveHistory[len(r.MoveHistory)-1]
+
+	// 规则：只能悔对手刚下的那一步
+	// 最后一步必须是对手下的棋（棋子颜色与请求者不同）
+	if lastMove.PieceType == requesterPieceType {
+		// 不能悔自己下的棋
+		return false, message.MoveRecord{}
+	}
+
+	// 从历史中移除
+	r.MoveHistory = r.MoveHistory[:len(r.MoveHistory)-1]
+
+	// 撤销棋盘上的棋子
+	r.Game.UndoMove(lastMove.Position.Row, lastMove.Position.Col)
+
+	// 回合切换回去
+	r.Game.SwitchTurn()
+
+	// 重置请求者的步时（因为现在轮到请求者了）
+	for _, p := range r.Players {
+		if p.PieceType == requesterPieceType {
+			p.MoveTimeLeft = r.Settings.MoveTimeLimit
+			break
+		}
+	}
+
+	return true, lastMove
+}
+
+// GetLastMove 获取最后一步棋
+func (r *Room) GetLastMove() *message.MoveRecord {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(r.MoveHistory) == 0 {
+		return nil
+	}
+
+	lastMove := r.MoveHistory[len(r.MoveHistory)-1]
+	return &lastMove
+}

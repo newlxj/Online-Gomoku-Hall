@@ -24,6 +24,8 @@ export interface UseRoomReturn {
   makeMove: (position: Position) => void
   sendEmoji: (emoji: string) => void
   refreshRoomList: () => void
+  requestSurrender: () => void
+  requestUndo: () => void
 }
 
 // 单例状态 - 避免每次调用都创建新的状态
@@ -224,6 +226,26 @@ export function useRoom(): UseRoomReturn {
     send('get_room_list', {})
   }
 
+  // 请求认输
+  function requestSurrender() {
+    if (!currentRoom.value) return
+
+    console.log('[useRoom] Requesting surrender')
+    send('surrender_request', {
+      roomId: currentRoom.value.id,
+    })
+  }
+
+  // 请求悔棋
+  function requestUndo() {
+    if (!currentRoom.value) return
+
+    console.log('[useRoom] Requesting undo')
+    send('undo_request', {
+      roomId: currentRoom.value.id,
+    })
+  }
+
   return {
     currentRoom: currentRoom,
     roomList: roomList,
@@ -241,5 +263,7 @@ export function useRoom(): UseRoomReturn {
     makeMove,
     sendEmoji,
     refreshRoomList,
+    requestSurrender,
+    requestUndo,
   }
 }

@@ -90,40 +90,19 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
       <!-- 霓虹边框效果 -->
       <div class="board-border-glow"></div>
 
-      <!-- 棋盘背景 - 赛博网格 -->
+      <!-- 棋盘背景 - 传统五子棋网格 -->
       <div class="board-background">
-        <!-- 底层电路纹理 -->
-        <div class="circuit-texture"></div>
+        <!-- 传统木纹背景 -->
+        <div class="wood-texture"></div>
 
-        <!-- 网格线 - 霓虹风格 -->
+        <!-- 网格线 - 传统风格 -->
         <svg
           class="grid-lines"
           :viewBox="`0 0 ${boardPixelSize} ${boardPixelSize}`"
           :width="boardPixelSize"
           :height="boardPixelSize"
         >
-          <!-- 渐变定义 -->
-          <defs>
-            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style="stop-color: rgba(0, 255, 255, 0);"/>
-              <stop offset="50%" style="stop-color: rgba(0, 255, 255, 0.6);"/>
-              <stop offset="100%" style="stop-color: rgba(0, 255, 255, 0);"/>
-            </linearGradient>
-            <linearGradient id="vLineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color: rgba(0, 255, 255, 0);"/>
-              <stop offset="50%" style="stop-color: rgba(0, 255, 255, 0.6);"/>
-              <stop offset="100%" style="stop-color: rgba(0, 255, 255, 0);"/>
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-          </defs>
-
-          <!-- 横线 -->
+          <!-- 横线 - 实线 -->
           <line
             v-for="i in boardSize"
             :key="`h-${i}`"
@@ -131,11 +110,11 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
             :y1="(i - 0.5) * cellSize"
             :x2="(boardSize - 0.5) * cellSize"
             :y2="(i - 0.5) * cellSize"
-            stroke="url(#lineGradient)"
+            stroke="#8B4513"
             stroke-width="1"
-            filter="url(#glow)"
+            stroke-linecap="round"
           />
-          <!-- 竖线 -->
+          <!-- 竖线 - 实线 -->
           <line
             v-for="i in boardSize"
             :key="`v-${i}`"
@@ -143,26 +122,22 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
             :y1="cellSize / 2"
             :x2="(i - 0.5) * cellSize"
             :y2="(boardSize - 0.5) * cellSize"
-            stroke="url(#vLineGradient)"
+            stroke="#8B4513"
             stroke-width="1"
-            filter="url(#glow)"
+            stroke-linecap="round"
           />
 
-          <!-- 星位点 - 霓虹菱形 -->
+          <!-- 星位点 - 传统圆形 -->
           <g v-for="star in [
             { x: 3, y: 3 }, { x: 3, y: 7 }, { x: 3, y: 11 },
             { x: 7, y: 3 }, { x: 7, y: 7 }, { x: 7, y: 11 },
             { x: 11, y: 3 }, { x: 11, y: 7 }, { x: 11, y: 11 }
           ]" :key="`star-${star.x}-${star.y}`">
-            <rect
-              :x="(star.x + 0.5) * cellSize - 4"
-              :y="(star.y + 0.5) * cellSize - 4"
-              width="8"
-              height="8"
-              fill="var(--neon-magenta)"
-              transform="rotate(45, (star.x + 0.5) * cellSize, (star.y + 0.5) * cellSize)"
-              opacity="0.8"
-              filter="url(#glow)"
+            <circle
+              :cx="(star.x + 0.5) * cellSize"
+              :cy="(star.y + 0.5) * cellSize"
+              r="4"
+              fill="#5D3A1A"
             />
           </g>
         </svg>
@@ -348,54 +323,47 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
 .board {
   position: relative;
   padding: 20px;
-  background: var(--cyber-darker);
-  border: 1px solid rgba(0, 255, 255, 0.3);
+  background: linear-gradient(135deg, #DEB887 0%, #D2B48C 50%, #C4A574 100%);
+  border: 3px solid #8B4513;
+  border-radius: 4px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.3),
+    inset 0 0 30px rgba(139, 69, 19, 0.1);
 }
 
-/* 霓虹边框效果 */
+/* 霓虹边框效果 - 改为传统边框 */
 .board-border-glow {
-  position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border: 2px solid transparent;
-  background: linear-gradient(45deg, var(--neon-cyan), var(--neon-magenta), var(--neon-cyan)) border-box;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) padding-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: destination-out;
-  mask-composite: exclude;
-  pointer-events: none;
-  animation: borderRotate 4s linear infinite;
-  opacity: 0.6;
-}
-
-@keyframes borderRotate {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+  display: none;
 }
 
 .board-background {
   position: relative;
 }
 
-/* 电路纹理 */
-.circuit-texture {
+/* 传统木纹纹理 */
+.wood-texture {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-image:
-    linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 10px 10px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(139, 69, 19, 0.03) 2px,
+      rgba(139, 69, 19, 0.03) 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 20px,
+      rgba(139, 69, 19, 0.02) 20px,
+      rgba(139, 69, 19, 0.02) 40px
+    );
   pointer-events: none;
+  border-radius: 2px;
 }
 
 .grid-lines {
@@ -426,46 +394,20 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
   pointer-events: auto;
 }
 
-/* 悬停效果 - 赛博朋克风格 */
+/* 悬停效果 - 传统风格 */
 .board-cell.clickable:hover::before {
   content: '';
   position: absolute;
-  width: 70%;
-  height: 70%;
-  border: 1px solid var(--neon-cyan);
-  background: rgba(0, 255, 255, 0.1);
-  box-shadow:
-    0 0 10px rgba(0, 255, 255, 0.3),
-    inset 0 0 10px rgba(0, 255, 255, 0.1);
-  clip-path: polygon(
-    0 0,
-    calc(100% - 4px) 0,
-    100% 4px,
-    100% 100%,
-    4px 100%,
-    0 calc(100% - 4px)
-  );
-  animation: hoverPulse 1s ease infinite;
+  width: 80%;
+  height: 80%;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
   pointer-events: none;
 }
 
-@keyframes hoverPulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(0.95);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 .board-cell.hover-black.clickable:hover::before {
-  border-color: var(--neon-magenta);
-  background: rgba(255, 0, 255, 0.1);
-  box-shadow:
-    0 0 10px rgba(255, 0, 255, 0.3),
-    inset 0 0 10px rgba(255, 0, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 /* 坐标标注 */
@@ -482,8 +424,8 @@ const boardPixelSize = computed(() => props.boardSize * cellSize.value)
   position: absolute;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--neon-cyan);
-  opacity: 0.5;
+  color: #5D3A1A;
+  font-weight: 600;
 }
 
 .coord-top {

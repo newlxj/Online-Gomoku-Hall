@@ -20,7 +20,7 @@ watch(() => props.piece, (newPiece, oldPiece) => {
     // 动画结束后移除新棋子标记
     setTimeout(() => {
       isNewPiece.value = false
-    }, 500)
+    }, 300)
   }
   previousPiece.value = newPiece
 }, { immediate: true })
@@ -36,26 +36,20 @@ const pieceClass = computed(() => ({
 
 <template>
   <div v-if="piece !== 0" class="chess-piece" :class="pieceClass">
-    <!-- 外层光晕 -->
-    <div class="piece-glow"></div>
     <!-- 主体 -->
     <div class="piece-body">
-      <!-- 内部纹理 -->
-      <div class="piece-circuit"></div>
       <!-- 高光 -->
       <div class="piece-highlight"></div>
-      <!-- 扫描线效果 -->
-      <div class="piece-scanline"></div>
     </div>
-    <!-- 数据环 -->
-    <div class="piece-data-ring" v-if="isLastMove || isWinning"></div>
+    <!-- 最后一步标记 -->
+    <div class="last-move-marker" v-if="isLastMove && !isWinning"></div>
   </div>
 </template>
 
 <style scoped>
 .chess-piece {
-  width: 85%;
-  height: 85%;
+  width: 90%;
+  height: 90%;
   border-radius: 50%;
   position: relative;
   transform: scale(1);
@@ -65,56 +59,21 @@ const pieceClass = computed(() => ({
 
 /* 新棋子放置动画 */
 .chess-piece.piece-new {
-  animation: placePiece 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: placePiece 0.3s ease-out forwards;
 }
 
 @keyframes placePiece {
   0% {
-    transform: scale(0) rotate(-180deg);
+    transform: scale(0);
     opacity: 0;
   }
   60% {
-    transform: scale(1.2) rotate(20deg);
+    transform: scale(1.1);
   }
   100% {
-    transform: scale(1) rotate(0deg);
+    transform: scale(1);
     opacity: 1;
   }
-}
-
-/* 外层光晕 */
-.piece-glow {
-  position: absolute;
-  top: -8%;
-  left: -8%;
-  width: 116%;
-  height: 116%;
-  border-radius: 50%;
-  opacity: 0.5;
-  animation: glowPulse 2s ease-in-out infinite;
-}
-
-@keyframes glowPulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.05);
-  }
-}
-
-/* 黑子样式 */
-.piece-black .piece-glow {
-  background: radial-gradient(circle, rgba(0, 255, 255, 0.4), transparent 70%);
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-}
-
-/* 白子样式 */
-.piece-white .piece-glow {
-  background: radial-gradient(circle, rgba(255, 0, 255, 0.4), transparent 70%);
-  box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
 }
 
 /* 棋子主体 */
@@ -128,168 +87,75 @@ const pieceClass = computed(() => ({
   overflow: hidden;
 }
 
-/* 黑子主体 */
+/* 黑子主体 - 传统风格 */
 .piece-black .piece-body {
-  background:
-    radial-gradient(circle at 30% 30%, #333, #000 60%);
+  background: radial-gradient(circle at 35% 35%, #4a4a4a 0%, #1a1a1a 50%, #000 100%);
   box-shadow:
-    0 4px 15px rgba(0, 0, 0, 0.8),
-    inset 0 -3px 10px rgba(0, 0, 0, 0.5),
-    inset 0 3px 10px rgba(0, 255, 255, 0.1);
-  border: 1px solid rgba(0, 255, 255, 0.3);
+    2px 2px 4px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.3),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.1);
+  border: 1px solid #333;
 }
 
-/* 白子主体 */
+/* 白子主体 - 传统风格 */
 .piece-white .piece-body {
-  background:
-    radial-gradient(circle at 30% 30%, #fff, #ddd 60%, #bbb);
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #f0f0f0 50%, #d0d0d0 100%);
   box-shadow:
-    0 4px 15px rgba(255, 255, 255, 0.3),
-    inset 0 -3px 10px rgba(0, 0, 0, 0.1),
-    inset 0 3px 10px rgba(255, 0, 255, 0.2);
-  border: 1px solid rgba(255, 0, 255, 0.3);
-}
-
-/* 电路纹理 */
-.piece-circuit {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0.15;
-  background-image:
-    linear-gradient(45deg, transparent 40%, currentColor 40%, currentColor 60%, transparent 60%),
-    linear-gradient(-45deg, transparent 40%, currentColor 40%, currentColor 60%, transparent 60%);
-  background-size: 8px 8px;
-}
-
-.piece-black .piece-circuit {
-  color: var(--neon-cyan);
-}
-
-.piece-white .piece-circuit {
-  color: var(--neon-magenta);
+    2px 2px 4px rgba(0, 0, 0, 0.3),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.05),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.8);
+  border: 1px solid #aaa;
 }
 
 /* 高光效果 */
 .piece-highlight {
   position: absolute;
-  width: 40%;
-  height: 40%;
-  top: 10%;
-  left: 15%;
+  width: 35%;
+  height: 35%;
+  top: 12%;
+  left: 18%;
   border-radius: 50%;
 }
 
 .piece-black .piece-highlight {
   background: radial-gradient(
-    ellipse at 30% 30%,
-    rgba(0, 255, 255, 0.4),
+    ellipse at 40% 40%,
+    rgba(255, 255, 255, 0.25),
     transparent 70%
   );
 }
 
 .piece-white .piece-highlight {
   background: radial-gradient(
-    ellipse at 30% 30%,
+    ellipse at 40% 40%,
     rgba(255, 255, 255, 0.9),
     rgba(255, 255, 255, 0.3) 50%,
     transparent 70%
   );
 }
 
-/* 扫描线效果 */
-.piece-scanline {
+/* 最后一步标记 - 红色小圆点 */
+.last-move-marker {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.1) 2px,
-    rgba(0, 0, 0, 0.1) 4px
-  );
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 25%;
+  height: 25%;
   border-radius: 50%;
-  opacity: 0.5;
+  background: #e74c3c;
+  box-shadow: 0 0 4px rgba(231, 76, 60, 0.5);
+  animation: lastMovePulse 1.5s ease-in-out infinite;
 }
 
-.piece-white .piece-scanline {
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.1) 2px,
-    rgba(255, 255, 255, 0.1) 4px
-  );
-}
-
-/* 最后一步标记 */
-.last-move .piece-glow {
-  animation: lastMoveGlow 1.5s ease-in-out infinite;
-}
-
-@keyframes lastMoveGlow {
+@keyframes lastMovePulse {
   0%, 100% {
-    opacity: 0.5;
-    box-shadow: 0 0 15px var(--neon-cyan);
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
   }
   50% {
-    opacity: 1;
-    box-shadow:
-      0 0 25px var(--neon-cyan),
-      0 0 50px var(--neon-cyan);
-  }
-}
-
-.piece-white.last-move .piece-glow {
-  animation: lastMoveGlowWhite 1.5s ease-in-out infinite;
-}
-
-@keyframes lastMoveGlowWhite {
-  0%, 100% {
-    opacity: 0.5;
-    box-shadow: 0 0 15px var(--neon-magenta);
-  }
-  50% {
-    opacity: 1;
-    box-shadow:
-      0 0 25px var(--neon-magenta),
-      0 0 50px var(--neon-magenta);
-  }
-}
-
-/* 数据环 - 最后一步和获胜棋子 */
-.piece-data-ring {
-  position: absolute;
-  top: -15%;
-  left: -15%;
-  width: 130%;
-  height: 130%;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  animation: dataRingRotate 3s linear infinite;
-}
-
-.last-move .piece-data-ring {
-  border-color: var(--neon-cyan);
-  border-style: dashed;
-  opacity: 0.8;
-}
-
-.piece-white.last-move .piece-data-ring {
-  border-color: var(--neon-magenta);
-}
-
-@keyframes dataRingRotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 }
 
@@ -298,79 +164,53 @@ const pieceClass = computed(() => ({
   animation: winningPulse 0.8s ease-in-out infinite;
 }
 
-.winning-piece .piece-glow {
-  background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent 70%) !important;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.5) !important;
-  animation: winningGlow 0.8s ease-in-out infinite !important;
+.winning-piece .piece-body {
+  box-shadow:
+    0 0 15px rgba(255, 215, 0, 0.6),
+    2px 2px 4px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.3),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.1);
 }
 
 @keyframes winningPulse {
   0%, 100% {
     transform: scale(1);
+    filter: brightness(1);
   }
   50% {
     transform: scale(1.05);
+    filter: brightness(1.1);
   }
 }
 
-@keyframes winningGlow {
-  0%, 100% {
-    opacity: 0.6;
-    box-shadow:
-      0 0 20px rgba(255, 215, 0, 0.5),
-      0 0 40px rgba(255, 215, 0, 0.3);
-  }
-  50% {
-    opacity: 1;
-    box-shadow:
-      0 0 30px rgba(255, 215, 0, 0.8),
-      0 0 60px rgba(255, 215, 0, 0.5),
-      0 0 80px rgba(255, 215, 0, 0.3);
-  }
-}
-
-.winning-piece .piece-data-ring {
-  border-color: var(--cyber-gold) !important;
-  border-width: 3px;
-  animation: dataRingRotate 1.5s linear infinite, winningRingPulse 0.8s ease-in-out infinite;
-}
-
-@keyframes winningRingPulse {
-  0%, 100% {
-    opacity: 0.6;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
-  }
+.winning-piece .last-move-marker {
+  display: none;
 }
 
 /* 响应式 - 移动端 */
 @media (max-width: 768px) {
-  .piece-glow {
-    top: -6%;
-    left: -6%;
-    width: 112%;
-    height: 112%;
+  .piece-highlight {
+    width: 30%;
+    height: 30%;
+    top: 15%;
+    left: 20%;
   }
 
-  .piece-data-ring {
-    top: -12%;
-    left: -12%;
-    width: 124%;
-    height: 124%;
+  .last-move-marker {
+    width: 20%;
+    height: 20%;
   }
 }
 
 @media (max-width: 480px) {
-  .piece-circuit {
-    background-size: 6px 6px;
-    opacity: 0.1;
+  .piece-highlight {
+    width: 25%;
+    height: 25%;
   }
 
-  .piece-scanline {
-    opacity: 0.3;
+  .last-move-marker {
+    width: 18%;
+    height: 18%;
   }
 }
 </style>

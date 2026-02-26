@@ -21,6 +21,10 @@ const (
 	MsgGetOnlineUsers  MessageType = "get_online_users"
 	MsgEnterLobby   MessageType = "enter_lobby"
 	MsgLeaveLobby   MessageType = "leave_lobby"
+	MsgSurrenderRequest  MessageType = "surrender_request"
+	MsgSurrenderResponse MessageType = "surrender_response"
+	MsgUndoRequest       MessageType = "undo_request"
+	MsgUndoResponse      MessageType = "undo_response"
 
 	// 服务器 -> 客户端
 	MsgRoomList           MessageType = "room_list"
@@ -261,4 +265,51 @@ type OnlineUserInfo struct {
 type OnlineUsersPayload struct {
 	Count   int              `json:"count"`
 	Users   []OnlineUserInfo `json:"users"`
+}
+
+// SurrenderRequestPayload 认输请求
+type SurrenderRequestPayload struct {
+	RoomID    string `json:"roomId"`
+	PlayerID  string `json:"playerId"`
+	PlayerAlias string `json:"playerAlias"`
+}
+
+// SurrenderResponsePayload 认输响应
+type SurrenderResponsePayload struct {
+	RoomID    string `json:"roomId"`
+	FromPlayer string `json:"fromPlayer"`
+	Accept    bool   `json:"accept"`
+}
+
+// UndoRequestPayload 悔棋请求
+type UndoRequestPayload struct {
+	RoomID      string   `json:"roomId"`
+	PlayerID    string   `json:"playerId"`
+	PlayerAlias string   `json:"playerAlias"`
+	MovePosition Position `json:"movePosition"` // 要悔的棋的位置
+}
+
+// UndoResponsePayload 悔棋响应
+type UndoResponsePayload struct {
+	RoomID     string `json:"roomId"`
+	FromPlayer string `json:"fromPlayer"`
+	Accept     bool   `json:"accept"`
+}
+
+// GameActionRequestPayload 游戏动作请求（服务器转发给对方）
+type GameActionRequestPayload struct {
+	RoomID      string `json:"roomId"`
+	Action      string `json:"action"` // "surrender" or "undo"
+	FromPlayer  string `json:"fromPlayer"`
+	FromAlias   string `json:"fromAlias"`
+	MovePosition *Position `json:"movePosition,omitempty"` // 悔棋时使用
+}
+
+// GameActionResponsePayload 游戏动作响应（服务器转发给请求者）
+type GameActionResponsePayload struct {
+	RoomID     string `json:"roomId"`
+	Action     string `json:"action"` // "surrender" or "undo"
+	FromPlayer string `json:"fromPlayer"`
+	FromAlias  string `json:"fromAlias"`
+	Accept     bool   `json:"accept"`
 }

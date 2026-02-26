@@ -24,6 +24,10 @@ export type MessageType =
   | 'get_online_users'
   | 'enter_lobby'
   | 'leave_lobby'
+  | 'surrender_request'
+  | 'surrender_response'
+  | 'undo_request'
+  | 'undo_response'
   // 服务器 -> 客户端
   | 'room_list'
   | 'room_update'
@@ -38,6 +42,10 @@ export type MessageType =
   | 'leaderboard_update'
   | 'online_users'
   | 'lobby_entered'
+  | 'surrender_request'
+  | 'surrender_response'
+  | 'undo_request'
+  | 'undo_response'
   | 'error'
 
 // 基础消息结构
@@ -156,6 +164,46 @@ export interface LeaderboardUpdatePayload {
 export interface ErrorPayload {
   code: number
   message: string
+}
+
+// 认输/悔棋请求 - 服务器转发
+export interface GameActionRequestPayload {
+  roomId: string
+  action: 'surrender' | 'undo'
+  fromPlayer: string
+  fromAlias: string
+  movePosition?: Position // 悔棋时使用
+}
+
+// 认输/悔棋响应 - 服务器转发
+export interface GameActionResponsePayload {
+  roomId: string
+  action: 'surrender' | 'undo'
+  fromPlayer: string
+  fromAlias: string
+  accept: boolean
+}
+
+// 认输请求 payload
+export interface SurrenderRequestPayload {
+  roomId: string
+}
+
+// 认输响应 payload
+export interface SurrenderResponsePayload {
+  roomId: string
+  accept: boolean
+}
+
+// 悔棋请求 payload
+export interface UndoRequestPayload {
+  roomId: string
+}
+
+// 悔棋响应 payload
+export interface UndoResponsePayload {
+  roomId: string
+  accept: boolean
 }
 
 // 在线用户信息

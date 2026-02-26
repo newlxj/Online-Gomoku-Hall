@@ -145,3 +145,27 @@ func (g *Game) GetPiece(row, col int) int {
 	}
 	return g.board[row][col]
 }
+
+// UndoMove 撤销落子
+func (g *Game) UndoMove(row, col int) bool {
+	if row < 0 || row >= g.boardSize || col < 0 || col >= g.boardSize {
+		return false
+	}
+
+	if g.board[row][col] == 0 {
+		return false
+	}
+
+	g.board[row][col] = 0
+	g.moveCount--
+	return true
+}
+
+// SwitchTurn 切换回合
+func (g *Game) SwitchTurn() {
+	if g.currentTurn == 1 {
+		g.currentTurn = 2
+	} else {
+		g.currentTurn = 1
+	}
+}

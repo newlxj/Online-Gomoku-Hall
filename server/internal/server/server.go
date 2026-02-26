@@ -181,6 +181,18 @@ func (s *Server) handleMessage(playerID string, conn *websocket.Conn, msg messag
 	case message.MsgHeartbeat:
 		// 更新活跃时间
 		// TODO: 从玩家信息获取别名
+
+	case message.MsgSurrenderRequest:
+		s.handleSurrenderRequest(playerID, conn, msg)
+
+	case message.MsgSurrenderResponse:
+		s.handleSurrenderResponse(playerID, conn, msg)
+
+	case message.MsgUndoRequest:
+		s.handleUndoRequest(playerID, conn, msg)
+
+	case message.MsgUndoResponse:
+		s.handleUndoResponse(playerID, conn, msg)
 	}
 }
 
@@ -215,7 +227,7 @@ func (s *Server) handleCreateRoom(playerID string, conn *websocket.Conn, msg mes
 
 	// 注册别名
 	if !s.aliasManager.Register(alias, playerID) {
-		s.sendError(conn, 400, "Alias already in use")
+		s.sendError(conn, 400, "昵称已被占用")
 		return
 	}
 
@@ -260,14 +272,14 @@ func (s *Server) handleJoinRoom(playerID string, conn *websocket.Conn, msg messa
 
 	// 注册别名
 	if !s.aliasManager.Register(alias, playerID) {
-		s.sendError(conn, 400, "Alias already in use")
+		s.sendError(conn, 400, "昵称已被占用")
 		return
 	}
 
 	// 获取房间
 	rm := s.roomManager.GetRoom(roomID)
 	if rm == nil {
-		s.sendError(conn, 404, "Room not found")
+		s.sendError(conn, 404, "房间未找到")
 		return
 	}
 
@@ -1128,4 +1140,301 @@ func (s *Server) handleLeaveLobby(playerID string) {
 	s.removeOnlineUser(playerID)
 
 	fmt.Printf("[handleLeaveLobby] Player %s left lobby\n", playerID)
+}
+
+// handleSurrenderRequest 处理认输请求
+func (s *Server) handleSurrenderRequest(playerID string, conn *websocket.Conn, msg message.Message) {
+	payload, ok := msg.Payload.(map[string]interface{})
+	if !ok {
+		s.sendError(conn, 400, "Invalid payload")
+		return
+	}
+
+	roomID, _ := payload["roomId"].(string)
+	fmt.Printf("[handleSurrenderRequest] playerID=%s, roomID=%s\n", playerID, roomID)
+
+	rm := s.roomManager.GetRoom(roomID)
+	if rm == nil {
+		s.sendError(conn, 404, "Room not found")
+		return
+	}
+
+	// 检查游戏是否正在进行
+	if rm.Status != room.StatusPlaying {
+		s.sendError(conn, 400, "游戏未在进行中")
+		return
+	}
+
+	// 获取请求者信息
+	var requesterAlias string
+	var opponentID string
+	for _, p := range rm.Players {
+		if p.ID == playerID {
+			requesterAlias = p.Alias
+		} else {
+			opponentID = p.ID
+		}
+	}
+
+	if requesterAlias == "" || opponentID == "" {
+		s.sendError(conn, 400, "无效玩家")
+		return
+	}
+
+	// 转发请求给对手
+	opponentConn, ok := s.clients[opponentID]
+	if !ok {
+		s.sendError(conn, 400, "对手未连接")
+		return
+	}
+
+	s.sendMessage(opponentConn, message.NewMessage("surrender_request", message.GameActionRequestPayload{
+		RoomID:     roomID,
+		Action:     "surrender",
+		FromPlayer: playerID,
+		FromAlias:  requesterAlias,
+	}))
+
+	fmt.Printf("[handleSurrenderRequest] Surrender request sent from %s to opponent\n", requesterAlias)
+}
+
+// handleSurrenderResponse 处理认输响应
+func (s *Server) handleSurrenderResponse(playerID string, conn *websocket.Conn, msg message.Message) {
+	payload, ok := msg.Payload.(map[string]interface{})
+	if !ok {
+		s.sendError(conn, 400, "无效负载")
+		return
+	}
+
+	roomID, _ := payload["roomId"].(string)
+	accept, _ := payload["accept"].(bool)
+	fmt.Printf("[handleSurrenderResponse] playerID=%s, roomID=%s, accept=%v\n", playerID, roomID, accept)
+
+	rm := s.roomManager.GetRoom(roomID)
+	if rm == nil {
+		s.sendError(conn, 404, "房间未找到")
+		return
+	}
+
+	// 获取响应者信息
+	var responderAlias string
+	var requesterID string
+	for _, p := range rm.Players {
+		if p.ID == playerID {
+			responderAlias = p.Alias
+		} else {
+			requesterID = p.ID
+		}
+	}
+
+	if responderAlias == "" || requesterID == "" {
+		s.sendError(conn, 400, "无效玩家")
+		return
+	}
+
+	// 转发响应给请求者
+	requesterConn, ok := s.clients[requesterID]
+	if ok {
+		s.sendMessage(requesterConn, message.NewMessage("surrender_response", message.GameActionResponsePayload{
+			RoomID:     roomID,
+			Action:     "surrender",
+			FromPlayer: playerID,
+			FromAlias:  responderAlias,
+			Accept:     accept,
+		}))
+	}
+
+	// 如果同意认输，结束游戏
+	if accept {
+		// 找到认输者（请求者）的棋子颜色
+		var loserPieceType int
+		var loserAlias string
+		var winnerAlias string
+		for _, p := range rm.Players {
+			if p.ID == requesterID {
+				loserPieceType = p.PieceType
+				loserAlias = p.Alias
+			} else {
+				winnerAlias = p.Alias
+			}
+		}
+
+		// 停止计时器
+		rm.StopTimer()
+
+		// 设置游戏结束状态
+		rm.SetGameFinished(rm.Winner, "surrender")
+		// 手动设置获胜者（因为 SetGameFinished 的 winner 参数用于其他情况）
+		rm.Winner = loserPieceType
+		for _, p := range rm.Players {
+			if p.ID != requesterID {
+				rm.Winner = p.PieceType
+				break
+			}
+		}
+		rm.WinReason = "surrender"
+
+		// 广播游戏结束
+		s.broadcastToRoom(rm, message.NewMessage(message.MsgGameOver, message.GameOverPayload{
+			RoomID:      rm.ID,
+			Winner:      rm.Winner,
+			Reason:      "surrender",
+			WinnerAlias: winnerAlias,
+			LoserAlias:  loserAlias,
+		}))
+
+		// 更新排行榜
+		if rm.Settings.RatedGame && loserAlias != "" && winnerAlias != "" {
+			s.leaderboardMgr.RecordGameResult(winnerAlias, loserAlias, false, 0)
+			// 更新玩家分数
+			for _, p := range rm.Players {
+				if p.Alias == winnerAlias || p.Alias == loserAlias {
+					p.Score = s.leaderboardMgr.GetPlayerScore(p.Alias)
+				}
+			}
+		}
+
+		// 广播房间更新
+		s.broadcastRoomUpdate(rm)
+		s.broadcastRoomListToAll()
+		s.broadcastLeaderboardToAll()
+	}
+}
+
+// handleUndoRequest 处理悔棋请求
+func (s *Server) handleUndoRequest(playerID string, conn *websocket.Conn, msg message.Message) {
+	payload, ok := msg.Payload.(map[string]interface{})
+	if !ok {
+		s.sendError(conn, 400, "无效负载")
+		return
+	}
+
+	roomID, _ := payload["roomId"].(string)
+	fmt.Printf("[handleUndoRequest] playerID=%s, roomID=%s\n", playerID, roomID)
+
+	rm := s.roomManager.GetRoom(roomID)
+	if rm == nil {
+		s.sendError(conn, 404, "房间未找到")
+		return
+	}
+
+	// 检查游戏是否正在进行
+	if rm.Status != room.StatusPlaying {
+		s.sendError(conn, 400, "游戏未在进行中")
+		return
+	}
+
+	// 获取最后一步棋
+	lastMove := rm.GetLastMove()
+	if lastMove == nil {
+		s.sendError(conn, 400, "无法撤销")
+		return
+	}
+
+	// 获取请求者信息
+	var requesterAlias string
+	var requesterPieceType int
+	var opponentID string
+	for _, p := range rm.Players {
+		if p.ID == playerID {
+			requesterAlias = p.Alias
+			requesterPieceType = p.PieceType
+		} else {
+			opponentID = p.ID
+		}
+	}
+
+	if requesterAlias == "" || opponentID == "" {
+		s.sendError(conn, 400, "无效玩家")
+		return
+	}
+
+	// 检查是否是请求悔对手的棋（最后一步应该是对手下的）
+	if lastMove.PieceType == requesterPieceType {
+		s.sendError(conn, 400, "只能请求撤销对手的上一招")
+		return
+	}
+
+	// 转发请求给对手
+	opponentConn, ok := s.clients[opponentID]
+	if !ok {
+		s.sendError(conn, 400, "对手未连接")
+		return
+	}
+
+	s.sendMessage(opponentConn, message.NewMessage("undo_request", message.GameActionRequestPayload{
+		RoomID:       roomID,
+		Action:       "undo",
+		FromPlayer:   playerID,
+		FromAlias:    requesterAlias,
+		MovePosition: &lastMove.Position,
+	}))
+
+	fmt.Printf("[handleUndoRequest] Undo request sent from %s to opponent\n", requesterAlias)
+}
+
+// handleUndoResponse 处理悔棋响应
+func (s *Server) handleUndoResponse(playerID string, conn *websocket.Conn, msg message.Message) {
+	payload, ok := msg.Payload.(map[string]interface{})
+	if !ok {
+		s.sendError(conn, 400, "无效负载")
+		return
+	}
+
+	roomID, _ := payload["roomId"].(string)
+	accept, _ := payload["accept"].(bool)
+	fmt.Printf("[handleUndoResponse] playerID=%s, roomID=%s, accept=%v\n", playerID, roomID, accept)
+
+	rm := s.roomManager.GetRoom(roomID)
+	if rm == nil {
+		s.sendError(conn, 404, "房间未找到")
+		return
+	}
+
+	// 获取响应者信息
+	var responderAlias string
+	var requesterID string
+	for _, p := range rm.Players {
+		if p.ID == playerID {
+			responderAlias = p.Alias
+		} else {
+			requesterID = p.ID
+		}
+	}
+
+	if responderAlias == "" || requesterID == "" {
+		s.sendError(conn, 400, "无效玩家")
+		return
+	}
+
+	// 转发响应给请求者
+	requesterConn, ok := s.clients[requesterID]
+	if ok {
+		s.sendMessage(requesterConn, message.NewMessage("undo_response", message.GameActionResponsePayload{
+			RoomID:     roomID,
+			Action:     "undo",
+			FromPlayer: playerID,
+			FromAlias:  responderAlias,
+			Accept:     accept,
+		}))
+	}
+
+	// 如果同意悔棋，执行悔棋
+	if accept {
+		// 请求者的颜色
+		var requesterPieceType int
+		for _, p := range rm.Players {
+			if p.ID == requesterID {
+				requesterPieceType = p.PieceType
+				break
+			}
+		}
+
+		success, undoneMove := rm.UndoMove(requesterPieceType)
+		if success {
+			fmt.Printf("[handleUndoResponse] Undo successful, position: (%d, %d)\n", undoneMove.Position.Row, undoneMove.Position.Col)
+			// 广播房间更新
+			s.broadcastRoomUpdate(rm)
+		}
+	}
 }

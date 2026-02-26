@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  gomoku:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gomoku-server:latest
+    container_name: gomoku-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - gomoku-data:/app/data
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  gomoku-data:
+    driver: local

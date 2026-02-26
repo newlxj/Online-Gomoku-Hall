@@ -23,6 +23,8 @@ const {
   makeMove,
   sendEmoji,
   leaveRoom,
+  requestSurrender,
+  requestUndo,
 } = useRoom()
 
 // 音效
@@ -114,6 +116,42 @@ function handleSendEmoji(emoji: string) {
   sendEmoji(emoji)
 }
 
+// 请求认输
+function handleSurrender() {
+  requestSurrender()
+}
+
+// 请求悔棋
+function handleUndo() {
+  requestUndo()
+}
+
+// 响应认输/悔棋请求
+function handleActionResponse(accept: boolean) {
+  if (!actionRequest.value) return
+
+  const { send } = useWebSocket()
+
+  if (actionRequest.value.type === 'surrender') {
+    send('surrender_response', {
+      roomId: currentRoom.value?.id,
+      accept
+    })
+  } else if (actionRequest.value.type === 'undo') {
+    send('undo_response', {
+      roomId: currentRoom.value?.id,
+      accept
+    })
+  }
+
+  actionRequest.value = null
+}
+
+// 关闭响应结果弹窗
+function closeActionResponse() {
+  actionResponse.value = null
+}
+
 // 获取玩家信息 - 改进：游戏开始前也能显示所有玩家
 const blackPlayer = computed<Player | null>(() => {
   if (!currentRoom.value) return null
@@ -141,6 +179,15 @@ const whitePlayer = computed<Player | null>(() => {
 
 const isSpectator = computed(() => {
   return currentRoom.value && !myPlayer.value
+})
+
+// 是否可以悔棋（对手刚下完棋，轮到自己时可以请求悔棋）
+const canUndo = computed(() => {
+  if (!currentRoom.value || !myPlayer.value || currentRoom.value.status !== 'playing') {
+    return false
+  }
+  // 至少要有一步棋才能悔
+  return currentRoom.value.moveHistory.length > 0
 })
 
 // 计算最后一步棋的位置 - 用于高亮显示
@@ -203,6 +250,21 @@ const { addMultiplayerHistory } = useHistory()
 // 表情显示
 const receivedEmoji = ref<{ emoji: string; fromAlias: string } | null>(null)
 let emojiTimer: ReturnType<typeof setTimeout> | null = null
+
+// 认输/悔棋请求弹窗
+const actionRequest = ref<{
+  type: 'surrender' | 'undo'
+  fromPlayer: string
+  fromAlias: string
+  movePosition?: { row: number; col: number }
+} | null>(null)
+
+// 认输/悔棋响应结果弹窗
+const actionResponse = ref<{
+  type: 'surrender' | 'undo'
+  fromAlias: string
+  accept: boolean
+} | null>(null)
 
 const unsubscribeGameOver = subscribe<{
   winner: number
@@ -283,10 +345,98 @@ const unsubscribeEmoji = subscribe<{ roomId: string; emoji: string; fromPlayer: 
   }
 )
 
+// 订阅认输请求
+const unsubscribeSurrenderRequest = subscribe<{
+  roomId: string
+  action: string
+  fromPlayer: string
+  fromAlias: string
+}>(
+  'surrender_request',
+  (payload) => {
+    console.log('[GameRoom] Received surrender_request:', payload)
+    actionRequest.value = {
+      type: 'surrender',
+      fromPlayer: payload.fromPlayer,
+      fromAlias: payload.fromAlias
+    }
+  }
+)
+
+// 订阅悔棋请求
+const unsubscribeUndoRequest = subscribe<{
+  roomId: string
+  action: string
+  fromPlayer: string
+  fromAlias: string
+  movePosition?: { row: number; col: number }
+}>(
+  'undo_request',
+  (payload) => {
+    console.log('[GameRoom] Received undo_request:', payload)
+    actionRequest.value = {
+      type: 'undo',
+      fromPlayer: payload.fromPlayer,
+      fromAlias: payload.fromAlias,
+      movePosition: payload.movePosition
+    }
+  }
+)
+
+// 订阅认输响应
+const unsubscribeSurrenderResponse = subscribe<{
+  roomId: string
+  action: string
+  fromPlayer: string
+  fromAlias: string
+  accept: boolean
+}>(
+  'surrender_response',
+  (payload) => {
+    console.log('[GameRoom] Received surrender_response:', payload)
+    actionResponse.value = {
+      type: 'surrender',
+      fromAlias: payload.fromAlias,
+      accept: payload.accept
+    }
+    // 3秒后自动关闭
+    setTimeout(() => {
+      actionResponse.value = null
+    }, 3000)
+  }
+)
+
+// 订阅悔棋响应
+const unsubscribeUndoResponse = subscribe<{
+  roomId: string
+  action: string
+  fromPlayer: string
+  fromAlias: string
+  accept: boolean
+}>(
+  'undo_response',
+  (payload) => {
+    console.log('[GameRoom] Received undo_response:', payload)
+    actionResponse.value = {
+      type: 'undo',
+      fromAlias: payload.fromAlias,
+      accept: payload.accept
+    }
+    // 3秒后自动关闭
+    setTimeout(() => {
+      actionResponse.value = null
+    }, 3000)
+  }
+)
+
 onUnmounted(() => {
   unsubscribeGameOver()
   unsubscribeMove()
   unsubscribeEmoji()
+  unsubscribeSurrenderRequest()
+  unsubscribeUndoRequest()
+  unsubscribeSurrenderResponse()
+  unsubscribeUndoResponse()
   if (emojiTimer) {
     clearTimeout(emojiTimer)
   }
@@ -300,6 +450,60 @@ onUnmounted(() => {
       <div v-if="receivedEmoji" class="emoji-popup">
         <span class="emoji-alias">{{ receivedEmoji.fromAlias }}</span>
         <span class="emoji-content">{{ receivedEmoji.emoji }}</span>
+      </div>
+    </Transition>
+
+    <!-- 认输/悔棋请求弹窗 -->
+    <Transition name="modal-fade">
+      <div v-if="actionRequest" class="action-request-modal">
+        <div class="modal-backdrop" @click="handleActionResponse(false)"></div>
+        <div class="modal-content">
+          <div class="modal-header">
+            <span class="modal-icon">{{ actionRequest.type === 'surrender' ? '🏳' : '↩' }}</span>
+            <span class="modal-title">
+              {{ actionRequest.type === 'surrender' ? '认输请求' : '悔棋请求' }}
+            </span>
+          </div>
+          <div class="modal-body">
+            <p class="request-message">
+              <span class="player-name">{{ actionRequest.fromAlias }}</span>
+              {{ actionRequest.type === 'surrender' ? '请求认输，是否同意？' : '请求悔棋，是否同意？' }}
+            </p>
+            <p v-if="actionRequest.type === 'undo' && actionRequest.movePosition" class="undo-info">
+              悔棋位置：{{ String.fromCharCode(65 + actionRequest.movePosition.col) }}{{ actionRequest.movePosition.row + 1 }}
+            </p>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn reject-btn" @click="handleActionResponse(false)">
+              <span>✕</span> 拒绝
+            </button>
+            <button class="modal-btn accept-btn" @click="handleActionResponse(true)">
+              <span>✓</span> 同意
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 认输/悔棋响应结果弹窗 -->
+    <Transition name="modal-fade">
+      <div v-if="actionResponse" class="action-response-modal">
+        <div class="modal-backdrop" @click="closeActionResponse"></div>
+        <div class="modal-content" :class="{ 'accepted': actionResponse.accept, 'rejected': !actionResponse.accept }">
+          <div class="modal-header">
+            <span class="modal-icon">{{ actionResponse.accept ? '✓' : '✕' }}</span>
+            <span class="modal-title">
+              {{ actionResponse.type === 'surrender' ? '认输' : '悔棋' }}
+              {{ actionResponse.accept ? '已同意' : '已拒绝' }}
+            </span>
+          </div>
+          <div class="modal-body">
+            <p class="response-message">
+              <span class="player-name">{{ actionResponse.fromAlias }}</span>
+              {{ actionResponse.accept ? '同意了你的请求' : '拒绝了你的请求' }}
+            </p>
+          </div>
+        </div>
       </div>
     </Transition>
 
@@ -392,8 +596,12 @@ onUnmounted(() => {
               <span v-else>TIMEOUT</span>
             </template>
             <template v-else-if="gameOverInfo.reason === 'leave'">
-              <span v-if="myPlayer && gameWinner === myPlayer.pieceType">OPPONENT SURRENDERED</span>
+              <span v-if="myPlayer && gameWinner === myPlayer.pieceType">OPPONENT LEFT</span>
               <span v-else>YOU LEFT</span>
+            </template>
+            <template v-else-if="gameOverInfo.reason === 'surrender'">
+              <span v-if="myPlayer && gameWinner === myPlayer.pieceType">OPPONENT SURRENDERED</span>
+              <span v-else>YOU SURRENDERED</span>
             </template>
           </div>
 
@@ -444,6 +652,18 @@ onUnmounted(() => {
           v-if="isPlaying && myPlayer"
           @send="handleSendEmoji"
         />
+
+        <!-- 游戏操作按钮 -->
+        <div v-if="isPlaying && myPlayer && !isSpectator" class="game-actions">
+          <button class="action-btn undo-btn" @click="handleUndo" :disabled="!canUndo">
+            <span class="action-icon">↩</span>
+            <span class="action-text">悔棋</span>
+          </button>
+          <button class="action-btn surrender-btn" @click="handleSurrender">
+            <span class="action-icon">🏳</span>
+            <span class="action-text">认输</span>
+          </button>
+        </div>
       </div>
 
       <!-- 右侧 - 白方信息 -->
@@ -1156,6 +1376,224 @@ onUnmounted(() => {
 .emoji-popup-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(-20px) scale(0.5);
+}
+
+/* 游戏操作按钮 */
+.game-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.action-icon {
+  font-size: 16px;
+}
+
+.undo-btn {
+  border-color: rgba(0, 255, 255, 0.4);
+}
+
+.undo-btn:hover:not(:disabled) {
+  background: rgba(0, 255, 255, 0.15);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.surrender-btn {
+  border-color: rgba(255, 100, 100, 0.4);
+}
+
+.surrender-btn:hover {
+  background: rgba(255, 100, 100, 0.15);
+  border-color: #ff6464;
+  box-shadow: 0 0 20px rgba(255, 100, 100, 0.3);
+}
+
+/* 认输/悔棋请求弹窗 */
+.action-request-modal,
+.action-response-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 30px 40px;
+  background: rgba(10, 10, 20, 0.95);
+  border: 1px solid var(--neon-cyan);
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+  min-width: 320px;
+  animation: modalPopIn 0.3s ease;
+}
+
+.modal-content.accepted {
+  border-color: var(--neon-green);
+  box-shadow: 0 0 30px rgba(0, 255, 102, 0.3);
+}
+
+.modal-content.rejected {
+  border-color: #ff6464;
+  box-shadow: 0 0 30px rgba(255, 100, 100, 0.3);
+}
+
+@keyframes modalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-icon {
+  font-size: 28px;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.modal-body {
+  text-align: center;
+}
+
+.request-message,
+.response-message {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+.player-name {
+  color: var(--neon-cyan);
+  font-weight: 600;
+}
+
+.undo-info {
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--font-mono);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.modal-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid;
+}
+
+.reject-btn {
+  background: rgba(255, 100, 100, 0.1);
+  border-color: rgba(255, 100, 100, 0.4);
+  color: #ff6464;
+}
+
+.reject-btn:hover {
+  background: rgba(255, 100, 100, 0.2);
+  border-color: #ff6464;
+  box-shadow: 0 0 15px rgba(255, 100, 100, 0.3);
+}
+
+.accept-btn {
+  background: rgba(0, 255, 102, 0.1);
+  border-color: rgba(0, 255, 102, 0.4);
+  color: var(--neon-green);
+}
+
+.accept-btn:hover {
+  background: rgba(0, 255, 102, 0.2);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 15px rgba(0, 255, 102, 0.3);
+}
+
+/* 弹窗过渡动画 */
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-fade-enter-active .modal-content,
+.modal-fade-leave-active .modal-content {
+  transition: transform 0.3s ease;
+}
+
+.modal-fade-enter-from .modal-content,
+.modal-fade-leave-to .modal-content {
+  transform: scale(0.8);
 }
 
 /* 响应式 */
