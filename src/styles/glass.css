@@ -1,0 +1,660 @@
+/* ============================================
+   CYBERPUNK GOMOKU - 全局样式
+   赛博朋克/霓虹美学设计
+   ============================================ */
+
+/* 导入本地字体 */
+@import './fonts.css';
+
+/* CSS 变量 - 赛博朋克配色 */
+:root {
+  /* 主色调 */
+  --cyber-black: #0a0a0f;
+  --cyber-dark: #12121a;
+  --cyber-darker: #080810;
+
+  /* 霓虹色彩 */
+  --neon-cyan: #00ffff;
+  --neon-cyan-dim: #00cccc;
+  --neon-magenta: #ff00ff;
+  --neon-magenta-dim: #cc00cc;
+  --neon-yellow: #ffff00;
+  --neon-yellow-dim: #cccc00;
+  --neon-orange: #ff6600;
+  --neon-pink: #ff0080;
+  --neon-green: #00ff66;
+  --neon-blue: #0088ff;
+  --neon-purple: #8800ff;
+
+  /* 辅助色 */
+  --cyber-gold: #ffd700;
+  --cyber-silver: #c0c0c0;
+  --cyber-bronze: #cd7f32;
+
+  /* 背景透明度 */
+  --glass-dark: rgba(10, 10, 20, 0.85);
+  --glass-darker: rgba(5, 5, 15, 0.9);
+  --glass-light: rgba(20, 20, 35, 0.7);
+
+  /* 边框颜色 */
+  --border-glow: rgba(0, 255, 255, 0.5);
+  --border-glow-magenta: rgba(255, 0, 255, 0.5);
+
+  /* 字体 - 使用本地字体和系统字体回退 */
+  --font-display: 'Orbitron', 'Rajdhani', 'Segoe UI', 'SF Pro Display', sans-serif;
+  --font-body: 'Rajdhani', 'Segoe UI', 'SF Pro Display', -apple-system, sans-serif;
+  --font-mono: 'Share Tech Mono', 'Consolas', 'SF Mono', 'Monaco', monospace;
+}
+
+/* 全局重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  overflow: hidden;
+  background: var(--cyber-black);
+  color: #fff;
+}
+
+/* 扫描线效果 - 全局覆盖 */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3;
+}
+
+/* ============================================
+   玻璃面板 - 赛博朋克风格
+   ============================================ */
+
+.glass-panel {
+  background: var(--glass-dark);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glow);
+  border-radius: 4px;
+  box-shadow:
+    0 0 20px rgba(0, 255, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 30px rgba(0, 255, 255, 0.03);
+  position: relative;
+}
+
+/* 赛博朋克角标装饰 */
+.glass-panel::before,
+.glass-panel::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: var(--neon-cyan);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.glass-panel::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.glass-panel::after {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+.glass-panel-dark {
+  background: var(--glass-darker);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  box-shadow:
+    0 0 30px rgba(0, 0, 0, 0.5),
+    inset 0 0 40px rgba(0, 255, 255, 0.02);
+  position: relative;
+}
+
+/* 深色面板角标 - 洋红色 */
+.glass-panel-dark::before,
+.glass-panel-dark::after {
+  content: '';
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-color: var(--neon-magenta);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.glass-panel-dark::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.glass-panel-dark::after {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* ============================================
+   霓虹发光效果
+   ============================================ */
+
+.neon-glow {
+  text-shadow:
+    0 0 5px currentColor,
+    0 0 10px currentColor,
+    0 0 20px currentColor,
+    0 0 40px currentColor;
+}
+
+.neon-glow-subtle {
+  text-shadow:
+    0 0 5px currentColor,
+    0 0 10px currentColor;
+}
+
+.neon-box {
+  box-shadow:
+    0 0 10px var(--neon-cyan),
+    0 0 20px rgba(0, 255, 255, 0.5),
+    0 0 40px rgba(0, 255, 255, 0.3),
+    inset 0 0 10px rgba(0, 255, 255, 0.1);
+  border: 1px solid var(--neon-cyan);
+}
+
+.neon-box-magenta {
+  box-shadow:
+    0 0 10px var(--neon-magenta),
+    0 0 20px rgba(255, 0, 255, 0.5),
+    0 0 40px rgba(255, 0, 255, 0.3);
+  border: 1px solid var(--neon-magenta);
+}
+
+/* ============================================
+   赛博朋克按钮
+   ============================================ */
+
+.glass-btn {
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  color: var(--neon-cyan);
+  padding: 12px 28px;
+  font-size: 13px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+}
+
+.glass-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.glass-btn:hover {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: var(--neon-cyan);
+  box-shadow:
+    0 0 15px rgba(0, 255, 255, 0.4),
+    inset 0 0 15px rgba(0, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.glass-btn:hover::before {
+  left: 100%;
+}
+
+.glass-btn:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 10px rgba(0, 255, 255, 0.6),
+    inset 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+/* 主要按钮 - 洋红色霓虹 */
+.glass-btn-primary {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.15), rgba(0, 255, 255, 0.15));
+  border-color: var(--neon-magenta);
+  color: var(--neon-cyan);
+  animation: borderPulse 2s ease-in-out infinite;
+}
+
+.glass-btn-primary:hover {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.25), rgba(0, 255, 255, 0.25));
+  border-color: var(--neon-cyan);
+  box-shadow:
+    0 0 20px rgba(255, 0, 255, 0.5),
+    0 0 40px rgba(0, 255, 255, 0.3),
+    inset 0 0 20px rgba(255, 0, 255, 0.1);
+}
+
+/* 危险按钮 */
+.glass-btn-danger {
+  border-color: rgba(255, 0, 80, 0.5);
+  color: var(--neon-pink);
+}
+
+.glass-btn-danger:hover {
+  background: rgba(255, 0, 80, 0.15);
+  border-color: var(--neon-pink);
+  box-shadow: 0 0 20px rgba(255, 0, 80, 0.4);
+}
+
+/* 按钮禁用状态 */
+.glass-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  animation: none;
+}
+
+.glass-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* ============================================
+   选择器样式
+   ============================================ */
+
+.glass-select {
+  font-family: var(--font-display);
+  background: var(--cyber-darker);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  color: var(--neon-cyan);
+  padding: 10px 40px 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300ffff' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: all 0.3s ease;
+}
+
+.glass-select:focus {
+  border-color: var(--neon-cyan);
+  box-shadow:
+    0 0 15px rgba(0, 255, 255, 0.3),
+    inset 0 0 10px rgba(0, 255, 255, 0.05);
+}
+
+.glass-select option {
+  background: var(--cyber-dark);
+  color: #fff;
+  padding: 10px;
+}
+
+/* ============================================
+   滚动条样式
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--cyber-darker);
+  border-left: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--neon-cyan), var(--neon-magenta));
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neon-cyan);
+  box-shadow: 0 0 10px var(--neon-cyan);
+}
+
+/* ============================================
+   动画关键帧
+   ============================================ */
+
+/* 淡入 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 缩放进入 */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 脉冲 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* 霓虹脉冲 */
+@keyframes neonPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 10px var(--neon-cyan),
+      0 0 20px rgba(0, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 20px var(--neon-cyan),
+      0 0 40px rgba(0, 255, 255, 0.8),
+      0 0 60px rgba(0, 255, 255, 0.5);
+  }
+}
+
+/* 边框脉冲 */
+@keyframes borderPulse {
+  0%, 100% {
+    border-color: var(--neon-magenta);
+    box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+  }
+  50% {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+  }
+}
+
+/* 故障效果 */
+@keyframes glitch {
+  0%, 90%, 100% {
+    transform: translate(0);
+    filter: none;
+  }
+  92% {
+    transform: translate(-2px, 1px);
+    filter: hue-rotate(90deg);
+  }
+  94% {
+    transform: translate(2px, -1px);
+    filter: hue-rotate(-90deg);
+  }
+  96% {
+    transform: translate(-1px, 2px);
+    filter: hue-rotate(180deg);
+  }
+  98% {
+    transform: translate(1px, -2px);
+    filter: hue-rotate(-180deg);
+  }
+}
+
+/* 文字故障 */
+@keyframes textGlitch {
+  0%, 100% {
+    text-shadow:
+      0 0 10px currentColor,
+      0 0 20px currentColor;
+  }
+  25% {
+    text-shadow:
+      -2px 0 var(--neon-cyan),
+      2px 0 var(--neon-magenta),
+      0 0 10px currentColor;
+  }
+  50% {
+    text-shadow:
+      2px 0 var(--neon-cyan),
+      -2px 0 var(--neon-magenta),
+      0 0 10px currentColor;
+  }
+  75% {
+    text-shadow:
+      0 0 10px currentColor,
+      0 0 20px currentColor;
+  }
+}
+
+/* 浮动 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* 渐变背景 */
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 旋转边框 */
+@keyframes rotateBorder {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 数据流动画 */
+@keyframes dataFlow {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+/* 闪烁 */
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    opacity: 1;
+  }
+  20%, 24%, 55% {
+    opacity: 0.4;
+  }
+}
+
+/* 电流效果 */
+@keyframes electricPulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* ============================================
+   动画类
+   ============================================ */
+
+.fade-in {
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.scale-in {
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.glitch-text {
+  animation: textGlitch 3s ease infinite;
+}
+
+.neon-flicker {
+  animation: flicker 3s linear infinite;
+}
+
+/* ============================================
+   特殊效果类
+   ============================================ */
+
+/* 电路线条背景 */
+.circuit-bg {
+  background-image:
+    linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* 全息效果 */
+.holographic {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 255, 255, 0.1) 0%,
+    rgba(255, 0, 255, 0.1) 50%,
+    rgba(0, 255, 255, 0.1) 100%
+  );
+  background-size: 200% 200%;
+  animation: gradientBG 3s ease infinite;
+}
+
+/* 数据条效果 */
+.data-bar {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--neon-cyan),
+    var(--neon-magenta),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: dataFlow 2s linear infinite;
+}
+
+/* ============================================
+   响应式调整
+   ============================================ */
+
+@media (max-width: 768px) {
+  .glass-btn {
+    padding: 10px 20px;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  .glass-panel::before,
+  .glass-panel::after,
+  .glass-panel-dark::before,
+  .glass-panel-dark::after {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* ============================================
+   工具类
+   ============================================ */
+
+/* 隐藏滚动条 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 文字渐变 */
+.gradient-text {
+  background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 霓虹文字 - 青色 */
+.text-neon-cyan {
+  color: var(--neon-cyan);
+  text-shadow:
+    0 0 5px var(--neon-cyan),
+    0 0 10px var(--neon-cyan);
+}
+
+/* 霓虹文字 - 洋红色 */
+.text-neon-magenta {
+  color: var(--neon-magenta);
+  text-shadow:
+    0 0 5px var(--neon-magenta),
+    0 0 10px var(--neon-magenta);
+}
+
+/* 霓虹文字 - 黄色 */
+.text-neon-yellow {
+  color: var(--neon-yellow);
+  text-shadow:
+    0 0 5px var(--neon-yellow),
+    0 0 10px var(--neon-yellow);
+}
